@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
-"""lexconvert v0.207 - convert phonemes between different speech synthesizers etc
-(c) 2007-2012,2014 Silas S. Brown.  License: GPL"""
+"""lexconvert v0.24 - convert phonemes between different speech synthesizers etc
+(c) 2007-16 Silas S. Brown.  License: GPL"""
 
 # Run without arguments for usage information
 
@@ -15,8 +15,9 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
-# Old versions of this code are being kept on SourceForge's E-GuideDog SVN at
+# Old versions of this code are being kept in the E-GuideDog SVN repository at
 # http://svn.code.sf.net/p/e-guidedog/code/ssb22/lexconvert
+
 # although some early ones are missing.
 
 def Phonemes():
@@ -39,12 +40,12 @@ def Phonemes():
      format. """
    a_as_in_ah = vowel()
    _, var1_a_as_in_ah = variant()
-   _, var2_a_as_in_ah = variant()
    _, var3_a_as_in_ah = variant()
    _, var4_a_as_in_ah = variant()
    _, var5_a_as_in_ah = variant()
    a_as_in_apple = vowel()
    u_as_in_but = vowel() # or the first part of un as in hunt
+   _, var1_u_as_in_but = variant()
    o_as_in_orange = vowel()
    _, var1_o_as_in_orange = variant()
    _, var2_o_as_in_orange = variant()
@@ -91,7 +92,6 @@ def Phonemes():
    o_as_in_go = vowel()
    _, var1_o_as_in_go = variant()
    _, var2_o_as_in_go = variant()
-   _, var3_o_as_in_go = variant()
    opt_ol_as_in_gold = opt_vowel() # see eSpeak / bbcmicro
    oy_as_in_toy = vowel()
    _, var1_oy_as_in_toy = variant()
@@ -129,6 +129,7 @@ def Phonemes():
    text_question = other()
    text_exclamation = other()
    text_comma = other()
+   ipa_colon = other() # for catching missed cases
    del _ ; return locals()
 
 def LexFormats():
@@ -177,7 +178,7 @@ def LexFormats():
 
        cleanup_regexps (default none) - optional list of
        (search,replace) regular expressions to "clean up"
-       after converting INTO this format
+       after converting each word INTO this format
        cleanup_func (default none) - optional special-case
        function to pass result through after cleanup_regexps
 
@@ -200,8 +201,10 @@ def LexFormats():
        (affects the --phones and --phones2phones options)
 
        inline_header (default none) text to print first
-       when outputting from --phones or --phones2phones
+         when outputting from --phones or --phones2phones
        inline_footer (default none) text to print last
+       inline_oneoff_header (default none) text to print
+         before inline_header on the first time only
 
        lex_filename - filename of a lexicon file.  If this
        is not specified, there is no support for writing a
@@ -303,7 +306,8 @@ def LexFormats():
        ("Shadrach","shei1drak"),
        ("Meshach","mii1shak"),
        ("Abednego","@be1dniigou"),
-    ], lex_filename=None, lex_entry_format=None),
+    ], cleanup_func = None,
+    lex_filename=None, lex_entry_format=None),
 
   "espeak" : makeDic(
     "eSpeak's default British voice", # but eSpeak's phoneme representation isn't always that simple, hence the regexps at the end
@@ -581,7 +585,7 @@ def LexFormats():
   ),
 
   "mac-uk" : makeDic(
-    "Scansoft/Nuance British voices for Mac OS 10.7+ (system lexicon editing required, see --mac-uk option)",
+    "Scansoft/Nuance British voices in Mac OS 10.7+ (system lexicon editing required, see --mac-uk option)",
     ('.',syllable_separator),
     ("'",primary_stress),
     (secondary_stress,'',False),
@@ -605,7 +609,7 @@ def LexFormats():
     ('g',g),
     ('h',h),
     ('I',i_as_in_it),
-    (ear,'E0',False),
+    ('I&$',ear),
     ('i',e_as_in_eat),
     ('d&Z',j_as_in_jump),
     ('k',k),
@@ -631,7 +635,7 @@ def LexFormats():
     ('z',z),
     ('Z',ge_of_blige_etc),
     # lex_filename not set (mac-uk code does not permanently save the lexicon; see --mac-uk option to read text)
-    inline_header = "(mac-uk phonemes output is for information only; you'll need the --mac-uk or --trymac-uk options to use it)\n",
+    inline_oneoff_header = "(mac-uk phonemes output is for information only; you'll need the --mac-uk or --trymac-uk options to use it)\n",
     word_separator=" ",phoneme_separator="",
     stress_comes_before_vowel=True,
     safe_to_drop_characters=True, # TODO: really?
@@ -644,7 +648,7 @@ def LexFormats():
     ('"',primary_stress),
     ('%',secondary_stress),
     ('A',a_as_in_ah),
-    (':',var2_a_as_in_ah),
+    (':',ipa_colon),
     ('A:',var3_a_as_in_ah),
     ('Ar\\',var4_a_as_in_ah),
     ('a:',var5_a_as_in_ah),
@@ -691,7 +695,7 @@ def LexFormats():
     ('N',ng),
     ('@U',o_as_in_go),
     ('oU',var2_o_as_in_go),
-    ('@}',var3_o_as_in_go),
+    ('@}',var1_u_as_in_but),
     ('OI',oy_as_in_toy),
     ('oI',var1_oy_as_in_toy),
     ('p',p),
@@ -724,14 +728,22 @@ def LexFormats():
     safe_to_drop_characters=True, # TODO: really?
   ),
   "android-pico" : makeVariantDic(
-    'X-SAMPA phonemes for the default \"Pico\" voice in Android (1.6+, American), wrapped in Java code',
-    cleanup_regexps=[(r'\\',r'\\\\'),('"','&quot;')],
+    'X-SAMPA phonemes for the default \"Pico\" voice in Android (1.6+, American), wrapped in Java code', # you could put en-GB instead of en-US, but it must be installed on the phone
+    ('A:',a_as_in_ah), # won't sound without the :
+    (var5_a_as_in_ah,'A:',False), # a: won't sound
+    ('@U:',o_as_in_go),
+    ('I',var1_i_as_in_it), # '1' won't sound
+    ('i:',e_as_in_eat), # 'i' won't sound
+    ('u:',oo_as_in_food), # }: won't sound
+    ('a_I',eye),('a_U',o_as_in_now),('e_I',a_as_in_ate),('O_I',oy_as_in_toy),(var1_oy_as_in_toy,'O_I',False),('o_U',var2_o_as_in_go),
+    cleanup_regexps=[(r'\\',r'\\\\'),('"','&quot;'),('::',':')],
     lex_filename="",lex_entry_format="",
     lex_read_function=None,
-    inline_header=r'mTts.speak("<speak xml:lang=\"en-US\">', # TODO: this assumes you're using their published 'boilerplate' code to instantiate mTts in onActivityResult.  Don't know if want to put ALL the boilerplate code in here (probably best not to)
+    inline_oneoff_header=r'class Speak { public static void speak(android.app.Activity a,String s) { class OnInit implements android.speech.tts.TextToSpeech.OnInitListener { public OnInit(String s) { this.s = s; } public void onInit(int i) { mTts.speak(this.s, android.speech.tts.TextToSpeech.QUEUE_ADD, null); } private String s; }; if(mTts==null) mTts=new android.speech.tts.TextToSpeech(a,new OnInit(s),"com.svox.pico"); else mTts.speak(s, android.speech.tts.TextToSpeech.QUEUE_ADD, null); } private static android.speech.tts.TextToSpeech mTts = null; };'+'\n',
+    inline_header=r'Speak.speak(this,"<speak xml:lang=\"en-US\">',
     inline_format=r'<phoneme alphabet=\"xsampa\" ph=\"%s\"/>',
-    clause_separator=r"\n", # note r"\n" != "\n"
-    inline_footer='</speak>", TextToSpeech.QUEUE_ADD, null);',
+    clause_separator=r".\n", # note r"\n" != "\n"
+    inline_footer='</speak>");',
   ),
 
   "acapela-uk" : makeDic(
@@ -779,7 +791,7 @@ def LexFormats():
     ('N',ng),
     ('@U',o_as_in_go),
     ('o U',var2_o_as_in_go),
-    ('@ }',var3_o_as_in_go),
+    ('@ }',var1_u_as_in_but),
     ('OI',oy_as_in_toy),
     ('o I',var1_oy_as_in_toy),
     ('p',p),
@@ -813,7 +825,7 @@ def LexFormats():
     ('2',secondary_stress),
     ('AA',a_as_in_ah),
     (var1_a_as_in_ah,'2',False),
-    (var2_a_as_in_ah,'1',False),
+    (ipa_colon,'1',False),
     ('AE',a_as_in_apple),
     ('AH',u_as_in_but),
     (o_as_in_orange,'AA',False),
@@ -1043,6 +1055,7 @@ def LexFormats():
     "BBC Micro Speech program from 1985 (see comments in lexconvert.py for more details)",
     # Speech was written by David J. Hoskins and published by Superior Software.  It took 7.5k of RAM including 3.1k of samples (49 phonemes + 1 for fricatives at 64 bytes each, 4-bit ~5.5kHz), 2.2k of lexicon, and 2.2k of machine code; sounds "retro" by modern standards but quite impressive for the BBC Micro in 1985.  Samples are played by amplitude-modulating the BBC's tone generator.
     # If you use an emulator like BeebEm, you'll need diskimg/Speech.ssd.  This can be made from your original Speech disc, or you might be able to find one but beware of copyright!  Same goes with the ROM images included in BeebEm (you might want to delete ones you didn't have).  There has been considerable discussion over whether UK copyright law does or should allow "format-shifting" your own legally-purchased media, and I don't fully understand all the discussion so I don't want to give advice on it here.  The issue is "format-shifting" your legally-purchased BBC Micro ROM code and Speech disc to emulator images; IF this is all right then I suspect downloading someone else's copy is arguably allowed as long as you bought it legally "back in the day", but I'm not a solicitor so I don't know.
+    # (Incidentally, yes I was the Silas Brown referred to in Beebug 11.1 p.59, 11.9 p.50/11.10 p.47 and 12.10 p.24, and, no, the question in the final issue wasn't quite how I put it, but all taken in good humour.)
     # lexconvert's --phones bbcmicro option creates *SPEAK commands which you can type into the BBC Micro or paste into an emulator, either at the BASIC prompt, or in a listing with line numbers provided by AUTO.  You have to load the Speech program first of course.
     # To script this on BeebEm, first turn off the Speech disc's boot option (by turning off File / Disc options / Write protect and entering "*OPT 4,0"; use "*OPT 4,3" if you want it back later; if you prefer to edit the disk image outside of the emulator then change byte 0x106 from 0x33 to 0x03), and then you can do (e.g. on a Mac) open /usr/local/BeebEm3/diskimg/Speech.ssd && sleep 1 && (echo '*SPEECH';python lexconvert.py --phones bbcmicro "Greetings from 19 85") | pbcopy && osascript -e 'tell application "System Events" to keystroke "v" using command down'
     # or if you know it's already loaded: echo "Here is some text" | python lexconvert.py --phones bbcmicro | pbcopy && osascript -e 'tell application "BeebEm3" to activate' && osascript -e 'tell application "System Events" to keystroke "v" using command down'
@@ -1364,7 +1377,7 @@ def LexFormats():
     ('!',text_exclamation),
     (',',text_comma),
     (u'\u0251',a_as_in_ah),
-    (u'\u02d0',var2_a_as_in_ah),
+    (u'\u02d0',ipa_colon),
     (u'\u0251\u02d0',var3_a_as_in_ah),
     (u'\u0251\u0279',var4_a_as_in_ah),
     ('a\u02d0',var5_a_as_in_ah),
@@ -1419,7 +1432,7 @@ def LexFormats():
     (u'\u0259\u028a',o_as_in_go),
     ('o',var1_o_as_in_go),
     (u'o\u028a',var2_o_as_in_go),
-    (u'\u0259\u0289',var3_o_as_in_go),
+    (u'\u0259\u0289',var1_u_as_in_but),
     (u'\u0254\u026a',oy_as_in_toy),
     (u'o\u026a',var1_oy_as_in_toy),
     ('p',p),
@@ -1457,15 +1470,25 @@ def LexFormats():
     cvtOut_func=unicode_preprocess,
   ),
 
+  "yinghan" : makeVariantDic(
+     "As unicode-ipa but, when converting a user lexicon, generates Python code that reads Wenlin Yinghan dictionary entries and adds IPA bands to matching words",
+    lex_filename="yinghan-ipa.py", # write-only for now
+    lex_type = "Python script",
+    lex_header = '#!/usr/bin/env python\n# -*- coding: utf-8 -*-\nimport sys; d={',
+    lex_entry_format='"%s":u"%s",\n',
+    lex_footer = "}\nfor k in d.keys(): d[k.lower()]=d[k]\nnextIsHead=False\nfor l in sys.stdin:\n sys.stdout.write(l)\n if nextIsHead and l.strip():\n  w=l.split()\n  if w[0]=='ehw': l=' '.join(w[1:])\n  if l.strip().lower() in d: sys.stdout.write('ipa '+d[l.strip().lower()].encode('utf-8')+'\\n')\n if l.startswith('*** '): nextIsHead=True\n",
+    noInherit=True
+  ),
+
   "unicode-rough" : makeVariantDic(
     "A non-standard notation that's reminiscent of unicode-ipa but changed so that more of the characters show in old browsers with incomplete fonts",
     ("'",primary_stress),
     (',',secondary_stress),
     ('ar-',a_as_in_ah),
-    (':',var2_a_as_in_ah),
+    (':',ipa_colon),
     (var3_a_as_in_ah,'ar-',False),
     (var4_a_as_in_ah,'ar-',False),
-    ('^',u_as_in_but),
+    ('uh',u_as_in_but),
     (u'\u0259:',e_as_in_herd),
     ('ai',eye),
     ('ch',ch),
@@ -1486,7 +1509,7 @@ def LexFormats():
     ('ng',ng),
     ('o',o_as_in_go),
     (var2_o_as_in_go,'o',False), # override unicode-ipa
-    (var3_o_as_in_go,'o',False), # ditto
+    (var1_u_as_in_but,'o',False), # ditto (?? '+'?)
     ('oy',oy_as_in_toy), (var1_oy_as_in_toy,'oy',False),
     ('r',r),
     ('sh',sh),
@@ -1513,7 +1536,7 @@ def LexFormats():
     ('_B',primary_stress),
     ('_2',secondary_stress),
     ('*',a_as_in_ah),
-    ('3',var2_a_as_in_ah),
+    ('3',ipa_colon),
     ('*3',var3_a_as_in_ah),
     ('*#',var4_a_as_in_ah),
     ('A3',var5_a_as_in_ah),
@@ -1566,7 +1589,7 @@ def LexFormats():
     ('5(',o_as_in_go),
     ('O',var1_o_as_in_go),
     ('O(',var2_o_as_in_go),
-    ('50U',var3_o_as_in_go),
+    ('50U',var1_u_as_in_but),
     ('</',oy_as_in_toy),
     ('O/',var1_oy_as_in_toy),
     ('P',p),
@@ -1614,7 +1637,7 @@ def LexFormats():
     ('!',text_exclamation),
     (',',text_comma),
     ('A',a_as_in_ah),
-    (':',var2_a_as_in_ah),
+    (':',ipa_colon),
     ('A:',var3_a_as_in_ah),
     ('A\\textturnr{}',var4_a_as_in_ah),
     ('a:',var5_a_as_in_ah),
@@ -1665,7 +1688,7 @@ def LexFormats():
     ('@U',o_as_in_go),
     ('o',var1_o_as_in_go),
     ('oU',var2_o_as_in_go),
-    ('@0',var3_o_as_in_go),
+    ('@0',var1_u_as_in_but),
     ('OI',oy_as_in_toy),
     ('oI',var1_oy_as_in_toy),
     ('p',p),
@@ -1698,7 +1721,7 @@ def LexFormats():
     lex_entry_format=r"%s & \textipa{%s}\\"+"\n",
     lex_footer = r"\end{longtable}\end{document}"+"\n",
     inline_format = "\\textipa{%s}",
-    inline_header = r"% In preamble, put \usepackage[safe]{tipa}"+"\n", # (the [safe] part is recommended if you're mixing with other TeX)
+    inline_oneoff_header = r"% In preamble, put \usepackage[safe]{tipa}"+"\n", # (the [safe] part is recommended if you're mixing with other TeX)
     word_separator=" ",phoneme_separator="",
     clause_separator=r"\\"+"\n",
     stress_comes_before_vowel=True,
@@ -1790,7 +1813,7 @@ def LexFormats():
   ),
 
   "kana-approx" : makeDic(
-  "Rough approximation using kana (for getting Japanese computer voices to speak some English words - works with some words better than others).  Set KANA_TYPE environment variable to hiragana or katakana (which can affect the sounds of some voices); default is hiragana", # for example try feeding it to 'say -v Kyoko' on Mac OS 10.7+ (with Japanese voice installed in System Preferences) (this voice has a built-in converter from English as well, but lexconvert --phones kana-approx can work better with some complex words, although the built-in converter does seem to have access to slightly more phonemes and can therefore produce words like "to" better).  Default is hiragana because I find hiragana easier to read than katakana.  Mac OS 10.7+'s Korean voices (Yuna and Narae) can also read kana, and you could try doing a makeVariantDic and adding in some Korean jamo letters for them (you'd be pushed to represent everything in jamo but kana+jamo seems more hopeful in theory), but again some words work better than others (not all phonetic combinations are supported and some words aren't clear at all).
+  "Rough approximation using kana (for getting Japanese computer voices to speak some English words - works with some words better than others).  Set KANA_TYPE environment variable to hiragana or katakana (which can affect the sounds of some voices); default is hiragana", # for example on Mac OS 10.7+ (with Japanese voice installed in System Preferences) try PHONES_PIPE_COMMAND='say -v Kyoko' (this voice has a built-in converter from English as well, but lexconvert --phones kana-approx can work better with some complex words, although the built-in converter does seem to have access to slightly more phonemes and can therefore produce words like "to" better).  Default is hiragana because I find hiragana easier to read than katakana, although the Kyoko voice does seem to be able to say 'v' a little better when using kata.  Mac OS 10.7+'s Korean voices (Yuna and Narae) can also read kana, and you could try doing a makeVariantDic and adding in some Korean jamo letters for them (you'd be pushed to represent everything in jamo but kana+jamo seems more hopeful in theory), but again some words work better than others (not all phonetic combinations are supported and some words aren't clear at all).
     # This kana-approx format is 'write-only' for now (see comment in cleanup_regexps re possible reversal)
     (u'\u30fc',primary_stress),
     (secondary_stress,ifset('KANA_MORE_EMPH',u'\u30fc'),False), # set KANA_MORE_EMPH environment variable if you want to try doubling the secondary-stressed vowels as well (doesn't always work very well; if it did, I'd put this line in a makeVariantDic called kana-approx-moreEmph or something)
@@ -1806,13 +1829,13 @@ def LexFormats():
     (u'\u304a\u3044',oy_as_in_toy), # oi
     (u'\u304a\u3046',o_as_in_go), # ou
     (a_as_in_ah,u'\u3042',False),
-    (a_as_in_ago,u'\u3042',False), # TODO: really?
+    (a_as_in_ago,u'\u3046\u304a',False), # TODO: \u3042, \u304a or \u3046 depending on the word?
     (e_as_in_herd,u'\u3042',False), # TODO: really?
     (i_as_in_it,u'\u3044',False), # TODO: really?
     (u_as_in_but,u'\u3046',False), # TODO: really?
     (ar_as_in_year,u'\u3048',False), # TODO: really?
-    (a_as_in_air,u'\u3048',False), # TODO: really?
     (ear,u'\u3044\u304a',False), # TODO: really?
+    (a_as_in_air,u'\u3048',False), # TODO: really?
     (oor_as_in_poor,u'\u304a',False), # TODO: really?
     (close_to_or,u'\u304a\u30fc'), # TODO: really?
     (u'\u3076',b), # bu (with vowel replacements later)
@@ -1832,8 +1855,8 @@ def LexFormats():
     (u'\u3059',s),
     (u'\u3057\u3085',sh),
     (u'\u3064',t),
-    (u'\u3094',v), # TODO: is vu always supported? (it doesn't seem to show up in all fonts)
     (u'\u308f',w), # use 'wa' (as 'wu' == 'u')
+    (v,ifset('KANA_V_AS_W',u'\u308f',u'\u3094'),False), # TODO: document KANA_V_AS_W variable.  Is vu always supported? (it doesn't seem to show up in all fonts)
     (u'\u3086',y),
     (u'\u305a',z),
     lex_filename="words-kana-approx.txt",
@@ -1844,27 +1867,31 @@ def LexFormats():
     clause_separator=u"\u3002\n".encode('utf-8'),
     cleanup_regexps=[(u"\u306c$",u"\u3093\u30fc"), # TODO: or u"\u3093\u3093" ?
        # now the vowel replacements (bu+a -> ba, etc) (in most cases these can be reversed into cvtOut_regexps if you want to use the kana-approx table to convert hiragana into approximate English phonemes (plus add a (u"\u3093\u30fc*",u"\u306c") and perhaps de-doubling rules to convert back to emphasis) but the result is unlikely to be any good)
-       (u"\u3076\u3042",u"\u3070"),(u"\u3076\u3044",u"\u3073"),(u"\u3076\u3046",u"\u3076"),(u"\u3076\u3048",u"\u3079"),(u"\u3076\u304a",u"\u307c"),
-       (u"\u3061\u3085\u3042",u"\u3061\u3083"),(u"\u3061\u3085\u3044",u"\u3061"),(u"\u3061\u3085\u3046",u"\u3061\u3085"),(u"\u3061\u3085\u3048",u"\u3061\u3047"),(u"\u3061\u3085\u304a",u"\u3061\u3087"),
-       (u"\u3065\u3042",u"\u3060"),(u"\u3065\u3044",u"\u3062"),(u"\u3065\u3046",u"\u3065"),(u"\u3065\u3048",u"\u3067"),(u"\u3065\u304a",u"\u3069"),
+       (u"\u3076\u3042",u"\u3070"),(u"\u3076\u3044",u"\u3073"),(u"\u3076\u3048",u"\u3079"),(u"\u3076\u304a",u"\u307c"),(u"\u3076\u3046",u"\u3076"),
+       (u"\u3061\u3085\u3042",u"\u3061\u3083"),(u"\u3061\u3085\u3046",u"\u3061\u3085"),(u"\u3061\u3085\u3048",u"\u3061\u3047"),(u"\u3061\u3085\u304a",u"\u3061\u3087"),(u"\u3061\u3085\u3044",u"\u3061"),
+       (u"\u3065\u3042",u"\u3060"),(u"\u3065\u3044",u"\u3062"),(u"\u3065\u3048",u"\u3067"),(u"\u3065\u304a",u"\u3069"),(u"\u3065\u3046",u"\u3065"),
        (u"\u3066\u3085\u3042",u"\u3066\u3083"),(u"\u3066\u3085\u3044",u"\u3066\u3043"),(u"\u3066\u3043\u3046",u"\u3066\u3085"),(u"\u3066\u3085\u3048",u"\u3066\u3047"),(u"\u3066\u3085\u304a",u"\u3066\u3087"),
-       (u"\u3075\u3042",u"\u3075\u3041"),(u"\u3075\u3044",u"\u3075\u3043"),(u"\u3075\u3046",u"\u3075"),(u"\u3075\u3048",u"\u3075\u3047"),(u"\u3075\u304a",u"\u3075\u3049"),
-       (u"\u306f\u3042",u"\u306f"),(u"\u306f\u3044",u"\u3072"),(u"\u306f\u3046",u"\u3075"),(u"\u306f\u3048",u"\u3078"),(u"\u306f\u304a",u"\u307b"),
-       (u"\u3050\u3042",u"\u304c"),(u"\u3050\u3044",u"\u304e"),(u"\u3050\u3046",u"\u3050"),(u"\u3050\u3048",u"\u3052"),(u"\u3050\u304a",u"\u3054"),
-       (u"\u3058\u3085\u3042",u"\u3058\u3083"),(u"\u3058\u3085\u304a",u"\u3058"),(u"\u3058\u3085\u3046",u"\u3058\u3085"),(u"\u3058\u3085\u3048",u"\u3058\u3047"),(u"\u3058\u3085\u304a",u"\u3058\u3087"),
-       (u"\u304f\u3042",u"\u304b"),(u"\u304f\u3044",u"\u304d"),(u"\u304f\u3046",u"\u304f"),(u"\u304f\u3048",u"\u3051"),(u"\u304f\u304a",u"\u3053"),
-       (u"\u308b\u3042",u"\u3089"),(u"\u308b\u3044",u"\u308a"),(u"\u308b\u3046",u"\u308b"),(u"\u308b\u3048",u"\u308c"),(u"\u308b\u304a",u"\u308d"),
-       (u"\u3080\u3042",u"\u307e"),(u"\u3080\u3044",u"\u307f"),(u"\u3080\u3046",u"\u3080"),(u"\u3080\u3048",u"\u3081"),(u"\u3080\u304a",u"\u3082"),
-       (u"\u306c\u3042",u"\u306a"),(u"\u306c\u3044",u"\u306b"),(u"\u306c\u3046",u"\u306c"),(u"\u306c\u3048",u"\u306d"),(u"\u306c\u304a",u"\u306e"),
-       (u"\u3077\u3042",u"\u3071"),(u"\u3077\u3044",u"\u3074"),(u"\u3077\u3046",u"\u3077"),(u"\u3077\u3048",u"\u307a"),(u"\u3077\u304a",u"\u307d"),
-       (u"\u3059\u3042",u"\u3055"),(u"\u3059\u3046",u"\u3059"),(u"\u3059\u3048",u"\u305b"),(u"\u3059\u304a",u"\u305d"),
-       (u"\u3057\u3085\u3042",u"\u3057\u3083"),(u"\u3057\u3085\u3044",u"\u3057"),(u"\u3057\u3085\u3046",u"\u3057\u3085"),(u"\u3057\u3085\u3048",u"\u3057\u3047"),(u"\u3057\u3085\u304a",u"\u3057\u3087"),
-       (u"\u3064\u3042",u"\u305f"),(u"\u3064\u3044",u"\u3061"),(u"\u3064\u3046",u"\u3064"),(u"\u3064\u3048",u"\u3066"),(u"\u3064\u304a",u"\u3068"),
-       (u"\u3086\u3042",u"\u3084"),(u"\u3086\u3046",u"\u3086"),(u"\u3086\u3048",u"\u3044\u3047"),(u"\u3086\u304a",u"\u3088"),
-       (u"\u305a\u3042",u"\u3056"),(u"\u305a\u3044",u"\u3058"),(u"\u305a\u3046",u"\u305a"),(u"\u305a\u3048",u"\u305c"),(u"\u305a\u304a",u"\u305e"),
-       (u"\u308f\u3042",u"\u308f"),(u"\u308f\u3044",u"\u3046\u3043"),(u"\u308f\u3046",u"\u3046"),(u"\u308f\u3048",u"\u3046\u3047"),(u"\u308f\u304a",u"\u3092"),
+       (u"\u3075\u3042",u"\u3075\u3041"),(u"\u3075\u3044",u"\u3075\u3043"),(u"\u3075\u3048",u"\u3075\u3047"),(u"\u3075\u304a",u"\u3075\u3049"),(u"\u3075\u3046",u"\u3075"),
+       (u"\u306f\u3044",u"\u3072"),(u"\u306f\u3046",u"\u3075"),(u"\u306f\u3048",u"\u3078"),(u"\u306f\u304a",u"\u307b"),(u"\u306f\u3042",u"\u306f"),
+       (u"\u3050\u3042",u"\u304c"),(u"\u3050\u3044",u"\u304e"),(u"\u3050\u3048",u"\u3052"),(u"\u3050\u304a",u"\u3054"),(u"\u3050\u3046",u"\u3050"),
+       (u"\u3058\u3085\u3042",u"\u3058\u3083"),(u"\u3058\u3085\u3046",u"\u3058\u3085"),(u"\u3058\u3085\u3048",u"\u3058\u3047"),(u"\u3058\u3085\u304a",u"\u3058\u3087"),(u"\u3058\u3085\u304a",u"\u3058"),
+       (u"\u304f\u3042",u"\u304b"),(u"\u304f\u3044",u"\u304d"),(u"\u304f\u3048",u"\u3051"),(u"\u304f\u304a",u"\u3053"),(u"\u304f\u3046",u"\u304f"),
+       (u"\u308b\u3042",u"\u3089"),(u"\u308b\u3044",u"\u308a"),(u"\u308b\u3048",u"\u308c"),(u"\u308b\u304a",u"\u308d"),(u"\u308b\u3046",u"\u308b"),
+       (u"\u3080\u3042",u"\u307e"),(u"\u3080\u3044",u"\u307f"),(u"\u3080\u3048",u"\u3081"),(u"\u3080\u304a",u"\u3082"),(u"\u3080\u3046",u"\u3080"),
+       (u"\u306c\u3042",u"\u306a"),(u"\u306c\u3044",u"\u306b"),(u"\u306c\u3048",u"\u306d"),(u"\u306c\u304a",u"\u306e"),(u"\u306c\u3046",u"\u306c"),
+       (u"\u3077\u3042",u"\u3071"),(u"\u3077\u3044",u"\u3074"),(u"\u3077\u3048",u"\u307a"),(u"\u3077\u304a",u"\u307d"),(u"\u3077\u3046",u"\u3077"),
+       (u"\u3059\u3042",u"\u3055"),(u"\u3059\u3048",u"\u305b"),(u"\u3059\u304a",u"\u305d"),(u"\u3059\u3046",u"\u3059"),
+       (u"\u3057\u3085\u3042",u"\u3057\u3083"),(u"\u3057\u3085\u3046",u"\u3057\u3085"),(u"\u3057\u3085\u3048",u"\u3057\u3047"),(u"\u3057\u3085\u304a",u"\u3057\u3087"),(u"\u3057\u3085\u3044",u"\u3057"),
+       (u"\u3064\u3042",u"\u305f"),(u"\u3064\u3044",u"\u3061"),(u"\u3064\u3048",u"\u3066"),(u"\u3064\u304a",u"\u3068"),(u"\u3064\u3046",u"\u3064"),
+       (u"\u3086\u3042",u"\u3084"),(u"\u3086\u3048",u"\u3044\u3047"),(u"\u3086\u304a",u"\u3088"),(u"\u3086\u3046",u"\u3086"),
+       (u"\u305a\u3042",u"\u3056"),(u"\u305a\u3044",u"\u3058"),(u"\u305a\u3048",u"\u305c"),(u"\u305a\u304a",u"\u305e"),(u"\u305a\u3046",u"\u305a"),
+       (u"\u308f\u3044",u"\u3046\u3043"),(u"\u308f\u3046",u"\u3046"),(u"\u308f\u3048",u"\u3046\u3047"),(u"\u308f\u304a",u"\u3092"),(u"\u308f\u3042",u"\u308f"),
        (u'\u3046\u3043\u3066\u3085', u'\u3046\u3043\u3065'), # sounds a bit better for words like 'with'
+       (u'\u3085\u3046',u'\u3085'), # and 'the' (especially with a_as_in_ago mapping to u'\u3046\u304a'; it's hard to get a convincing 'the' though, especially in isolation)
        (u'\u3050\u3050',u'\u3050'), # gugu -> gu, sometimes comes up with 'gl-' combinations
+       (u'\u30fc\u30fc+',u'\u30fc'), # in case we put 30fc in the table AND a stress mark has been applied to it
+       (u'^(.)$',ur'\1\u30fc'), # lengthen any word that ends up as a single kana (otherwise can be clipped badly)
+    (u'^([\u3042\u3070\u3060\u304c\u304b\u3089\u307e\u306a\u3071\u3055\u305f\u3084\u3056\u308f]\u3044)$',ur'\1\u30fc'), # ditto for -ai (TODO: -ao might need lengthening sometimes?? depends on context.  -ei, -oi, -ou seem OK)
     ],
     cleanup_func = hiragana_to_katakana
   ),
@@ -1890,51 +1917,66 @@ E.g.: python lexconvert.py --try festival h @0 l ou1
  or: python lexconvert.py --try unicode-ipa '\\u02c8\\u0279\\u026adn\\u0329' (for Unicode put '\\uNNNN' or UTF-8)"""
    format = sys.argv[i+1]
    if not format in lexFormats: return "No such format "+repr(format)+" (use --formats to see a list of formats)"
-   espeak = convert(getInputText(i+2,"phonemes in "+format+" format"),format,'espeak')
-   os.popen("espeak -x","w").write(markup_inline_word("espeak",espeak))
+   for phones in getInputText(i+2,"phonemes in "+format+" format",'maybe'):
+      espeak = convert(phones,format,'espeak')
+      os.popen("espeak -x","w").write(markup_inline_word("espeak",espeak)+'\n') # separate process each item for more responsiveness from the console (sending 'maybe' to getInputText means won't lose efficiency if not read from console)
 
 def mainopt_trymac(i):
    """*<format> [<pronunciation>]
 Convert phonemes from <format> into Mac and try it using the Mac OS 'say' command"""
    format = sys.argv[i+1]
    if not format in lexFormats: return "No such format "+repr(format)+" (use --formats to see a list of formats)"
-   mac = convert(getInputText(i+2,"phonemes in "+format+" format"),format,'mac')
-   toSay = markup_inline_word("mac",mac)
-   print toSay
-   os.popen(macSayCommand()+" -v Vicki","w").write(toSay) # Need to specify a voice because the default voice might not be able to take Apple phonemes.  Vicki has been available since 10.3, as has the 'say' command (previous versions need osascript, see Gradint's code)
+   for resp in getInputText(i+2,"phonemes in "+format+" format",'maybe'):
+      mac = convert(resp,format,'mac')
+      toSay = markup_inline_word("mac",mac)
+      print toSay
+      os.popen(macSayCommand()+" -v Vicki","w").write(toSay) # Need to specify a voice because the default voice might not be able to take Apple phonemes.  Vicki has been available since 10.3, as has the 'say' command (previous versions need osascript, see Gradint's code)
 
 def mainopt_trymac_uk(i):
    """*<format> [<pronunciation>]
 Convert phonemes from <format> and try it with Mac OS British voices (see --mac-uk for details)"""
    format = sys.argv[i+1]
    if not format in lexFormats: return "No such format "+repr(format)+" (use --formats to see a list of formats)"
-   macuk = convert(getInputText(i+2,"phonemes in "+format+" format"),format,'mac-uk')
-   m = MacBritish_System_Lexicon("",os.environ.get("MACUK_VOICE","Daniel"))
-   try:
+   for resp in getInputText(i+2,"phonemes in "+format+" format",'maybe'):
+     macuk = convert(resp,format,'mac-uk')
+     m = MacBritish_System_Lexicon("",os.environ.get("MACUK_VOICE","Daniel"))
+     try:
       try: m.speakPhones(macuk.split())
       finally: m.close()
-   except KeyboardInterrupt:
+     except KeyboardInterrupt:
       sys.stderr.write("Interrupted\n")
 
 def mainopt_phones(i):
    """*<format> [<words>]
 Use eSpeak to convert text to phonemes, and then convert the phonemes to format 'format'.
 E.g.: python lexconvert.py --phones unicode-ipa This is a test sentence.
+Set environment variable PHONES_PIPE_COMMAND to an additional command to which to write the phones as well as standard output.  (If standard input is a terminal then this will be done separately after each line.)
 (Some commercial speech synthesizers do not work well when driven entirely from phonemes, because their internal format is different and is optimised for normal text.)
-Set format to 'all' if you want to see the phonemes in ALL supported formats."""
+Set format to 'all' if you want to see the phonemes in ALL supported formats.
+"""
    format = sys.argv[i+1]
    if format=="example": return "The 'example' format cannot be used with --phones; try --convert, or did you mean --phones festival" # could allow example anyway as it's basically Festival, but save confusion as eSpeak might not generate the same phonemes if our example words haven't been installed in the system's eSpeak.  (Still allow it to be used in --try etc though.)
    if not format in lexFormats and not format=="all": return "No such format "+repr(format)+" (use --formats to see a list of formats)"
-   response = pipeThroughEspeak(getInputText(i+2,"text").replace(u'\u2032'.encode('utf-8'),'').replace(u'\u00b7'.encode('utf-8'),'')) # (remove any 2032 and b7 pronunciation marks before passing to eSpeak)
-   if not '\n' in response.rstrip() and 'command' in response: return response.strip() # 'bad cmd' / 'cmd not found'
-   if format=="all": formats = sorted(k for k in lexFormats.keys() if not k=="example")
-   else: formats = [format]
-   for format in formats:
-    if len(formats)>1: writeFormatHeader(format)
-    sys.stdout.write(checkSetting(format,"inline_header"))
-    output_clauses(format,convert(parseIntoWordsAndClauses("espeak",response),"espeak",format))
-    sys.stdout.write(checkSetting(format,"inline_footer"))
-    print
+   hadOneoff = False
+   for response in getInputText(i+2,"text",'maybe'):
+    response = pipeThroughEspeak(response.replace(u'\u2032'.encode('utf-8'),'').replace(u'\u00b4'.encode('utf-8'),'').replace(u'\u02b9'.encode('utf-8'),'').replace(u'\u00b7'.encode('utf-8'),'')) # (remove any 2032 and b7 pronunciation marks before passing to eSpeak)
+    if not '\n' in response.rstrip() and 'command' in response: return response.strip() # 'bad cmd' / 'cmd not found'
+    if format=="all": formats = sorted(k for k in lexFormats.keys() if not k=="example")
+    else: formats = [format]
+    for format in formats:
+       def out(doOneoff=True):
+          if len(formats)>1: writeFormatHeader(format)
+          if doOneoff: sys.stdout.write(checkSetting(format,"inline_oneoff_header"))
+          sys.stdout.write(checkSetting(format,"inline_header"))
+          output_clauses(format,convert(parseIntoWordsAndClauses("espeak",response),"espeak",format))
+          sys.stdout.write(checkSetting(format,"inline_footer"))
+          print
+          sys.stdout.flush() # in case it's being piped
+       out(not hadOneoff) ; hadOneoff = True
+       if os.environ.get("PHONES_PIPE_COMMAND",""):
+          o,sys.stdout = sys.stdout,os.popen(os.environ["PHONES_PIPE_COMMAND"],'w')
+          out()
+          sys.stdout = o
 
 def pipeThroughEspeak(inpt):
    "Writes inpt to espeak -q -x (in chunks if necessary) and returns the result"
@@ -2038,12 +2080,11 @@ E.g.: python lexconvert.py --convert festival cepstral"""
    try:
       fname=getSetting(toFormat,"lex_filename")
       getSetting(toFormat,"lex_entry_format") # convert_user_lexicon will need this
-   except KeyError: return "Write support for lexicons of format '%s' not yet implemented (need at least lex_filename and lex_entry_format); try using --phones or --phones2phones options instead" % (toFormat,)
+   except KeyError: fname = None
+   if not fname: return "Write support for lexicons of format '%s' not yet implemented (need at least lex_filename and lex_entry_format); try using --phones or --phones2phones options instead" % (toFormat,)
    if toFormat=="espeak":
       assert fname=="en_extra", "If you changed eSpeak's lex_filename in the table you also need to change the code below"
-      try: open("en_list")
-      except: return "You should cd to the espeak source directory before converting a lexicon to espeak"
-      os.system("mv en_extra en_extra~ ; grep \" // \" en_extra~ > en_extra") # keep the commented entries, so can incrementally update the user lexicon only
+      if os.system("mv en_extra en_extra~ && grep \" // \" en_extra~ > en_extra"): sys.stderr.write("Warning: en_extra not found, making a new one\n(espeak compile will probably fail in this directory)\n") # otherwise keep the commented entries, so can incrementally update the user lexicon only
       outFile=open(fname,"a")
    else:
       l = 0
@@ -2064,7 +2105,7 @@ You need to specify the location of the OALD file in <location>,
 e.g. for Debian festlex-oald package: python lexconvert.py --festival-dictionary-to-espeak /usr/share/festival/dicts/oald/all.scm
 or if you can't install the Debian package, try downloading http://ftp.debian.org/debian/pool/non-free/f/festlex-oald/festlex-oald_1.4.0.orig.tar.gz, unpack it into /tmp, and do: python lexconvert.py --festival-dictionary-to-espeak /tmp/festival/lib/dicts/oald/oald-0.4.out
 In all cases you need to cd to the eSpeak source directory before running this.  en_extra will be overwritten.  Converter will also read your ~/.festivalrc if it exists.  (You can later incrementally update from ~/.festivalrc using the --convert option; the entries from the system dictionary will not be overwritten in this case.)  Specify --without-check to bypass checking the existing eSpeak pronunciation for OALD entries (much faster, but makes a larger file and in some cases compromises the pronunciation quality)."""
-   try: festival_location=sys.argv[i]
+   try: festival_location=sys.argv[i+1]
    except IndexError: return "Error: --festival-dictionary-to-espeak must be followed by the location of the festival OALD file (see help text)"
    try: open(festival_location)
    except: return "Error: The specified OALD location '"+festival_location+"' could not be opened"
@@ -2076,11 +2117,13 @@ def mainopt_syllables(i):
    """[<words>]
 Attempt to break 'words' into syllables for music lyrics (uses espeak to determine how many syllables are needed)"""
    # Normally, espeak -x output can't be relied on to always put a space between every input word.  So we put a newline after every input word instead.  This might affect eSpeak's output (not recommended for mainopt_phones, hence no 'interleave words and phonemes' option), but it should be OK for just counting the syllables.  (Also, the assumption that the input words have been taken from song lyrics usefully rules out certain awkward punctuation cases.)
-   txt=getInputText(i+1,"word(s)");words=txt.split()
-   response = pipeThroughEspeak('\n'.join(words).replace("!","").replace(":",""))
-   if not '\n' in response.rstrip() and 'command' in response: return response.strip() # 'bad cmd' / 'cmd not found'
-   rrr = response.split("\n")
-   print " ".join([hyphenate(word,sylcount(convert(line,"espeak","festival"))) for word,line in zip(words,filter(lambda x:x,rrr))])
+   for txt in getInputText(i+1,"word(s)",'maybe'):
+      words=txt.split()
+      response = pipeThroughEspeak('\n'.join(words).replace("!","").replace(":",""))
+      if not '\n' in response.rstrip() and 'command' in response: return response.strip() # 'bad cmd' / 'cmd not found'
+      rrr = response.split("\n")
+      print " ".join([hyphenate(word,sylcount(convert(line,"espeak","example"))) for word,line in zip(words,filter(lambda x:x,rrr))])
+      sys.stdout.flush() # in case piped
 
 def wordSeparator(format):
    """Returns the effective word separator of format (remembering that it defaults to same as phoneme_separator"""
@@ -2219,12 +2262,19 @@ def makeDic(doc,*args,**kwargs):
     global lastDictionaryMade ; lastDictionaryMade = d
     return d
 def makeVariantDic(doc,*args,**kwargs):
-    "Like makeDic but create a new 'variant' version of the last-made dictionary, modifying some phonemes and settings (and giving it a new doc string) but keeping everything else the same.  Any list settings (e.g. cleanup_regexps) are ADDED to by the variant; other settings and phonemes are REPLACED if they are specified in the variant."
+    "Like makeDic but create a new 'variant' version of the last-made dictionary, modifying some phonemes and settings (and giving it a new doc string) but keeping everything else the same.  Any list settings (e.g. cleanup_regexps) are ADDED to by the variant; other settings and phonemes are REPLACED if they are specified in the variant.  If you don't want subsequent variants to inherit the changes made by this variant, add noInherit=True to the keyword args."
+    global lastDictionaryMade
+    ldmOld = lastDictionaryMade
     toUpdate = lastDictionaryMade.copy()
     global mainVowels,consonants
     oldV,oldC = mainVowels,consonants
     mainVowels,consonants = [],[] # so makeDic doesn't complain if some vowels/consonants are missing
+    if 'noInherit' in kwargs:
+       noInherit = kwargs['noInherit']
+       del kwargs['noInherit']
+    else: noInherit = False
     d = makeDic(doc,*args,**kwargs)
+    if noInherit: lastDictionaryMade = ldmOld
     mainVowels,consonants = oldV,oldC
     # if toUpdate[("settings","doc")].startswith("(approx.) ") and not d[("settings","doc")].startswith("(approx.) "): d[("settings","doc")]="(approx.) "+d[("settings","doc")] # TODO: always?
     for k,v in toUpdate.items():
@@ -2399,6 +2449,7 @@ def convert_system_festival_dictionary_to_espeak(festival_location,check_existin
     for word,pos,pronunc in parse_festival_dict(festival_location):
         pronunc=pronunc.replace("i@ 0 @ 0","ii ou 2 ").replace("i@ 0 u 0","ii ou ") # (hack for OALD's "radio"/"video"/"stereo"/"embryo" etc)
         pronunc=pronunc.replace("0","") # 0's not necessary, and OALD sometimes puts them in wrong places, confusing the converter
+        if word in ['mosquitoes']: continue # OALD bug (TODO: any others?)
         if wordDic.has_key(word):
             ambiguous[word] = True
             del wordDic[word] # better not go there
@@ -2488,7 +2539,7 @@ def read_user_lexicon(fromFormat):
     try:
        lexFilename = getSetting(fromFormat,"lex_filename")
        lexfile = open(lexFilename)
-       print "Reading from",lexFilename
+       if not os.environ.get("LEXCONVERT_OMIT_READING_FROM",""): print "Reading from",lexFilename # TODO: document LEXCONVERT_OMIT_READING_FROM (might be useful for the --mac-uk option)
     except KeyError: lexfile = None # lex_read_function without lex_filename is allowed, if the read function can take null param and fetch the lexicon itself
     except IOError: raise Message(fromFormat+"'s lexicon is expected to be in a file called "+replHome(lexFilename)+" which could not be read - please fix and try again")
     return readFunction(lexfile)
@@ -2572,10 +2623,10 @@ def markup_bbcMicro_word(pronunc):
       return pronunc
 bbc_partsSoFar=bbc_charsSoFar=0
 
-def sylcount(festival):
+def sylcount(example_format_festival):
   """Tries to count the number of syllables in a Festival string (see mainopt_syllables).  We treat @ as counting the same as the previous syllable (e.g. "fire", "power"), but this can vary in different songs, so the result will likely need a bit of proofreading."""
   count = inVowel = maybeCount = hadAt = 0
-  festival = festival.split()
+  festival = example_format_festival.split() # no brackets, emphasis by vowels, but spaces between each syllable
   for phone,i in zip(festival,range(len(festival))):
     if phone[0] in "aeiou": inVowel=0 # unconditionally start new syllable
     if phone[0] in "aeiou@12":
@@ -2611,7 +2662,7 @@ def hyphenate(word,numSyls):
         syls[-2] += syls[-1][0]
         syls[-1] = syls[-1][1:]
       elif ((len(syls[-2])>2 and syls[-2][-1]==syls[-2][-2] and not syls[-2][-1].lower() in "aeiou") \
-            or (syls[-1][0].lower() in "aeiouy" and len(syls[-2])>2)) \
+            or (syls[-1] and syls[-1][0].lower() in "aeiouy" and len(syls[-2])>2)) \
             and filter(lambda x:x.lower() in "aeiou",list(syls[-2][:-1])):
         # repeated consonant at end - put one on next
         # or vowel on right: move a letter over (sometimes the right thing to do...)
@@ -2635,14 +2686,26 @@ def stdin_is_terminal():
    return (not hasattr(sys.stdin,"isatty")) or sys.stdin.isatty()
 
 def getInputText(i,prompt,as_iterable=False):
-  """Gets text either from the command line or from standard input.  Issue prompt if there's nothing on the command line and standard input is connected to a tty instead of a pipe or file.  If as_iterable, return an iterable object over the lines instead of reading and returning all text at once."""
+  """Gets text either from the command line or from standard input.  Issue prompt if there's nothing on the command line and standard input is connected to a tty instead of a pipe or file.  If as_iterable, return an iterable object over the lines instead of reading and returning all text at once.  If as_iterable=='maybe', return the iterable but if not reading from a tty then read everything into one item."""
   txt = ' '.join(sys.argv[i:])
   if txt:
-    if as_iterable: return txt.split('\n')
+    if as_iterable=='maybe': return [txt]
+    elif as_iterable: return txt.split('\n')
     else: return txt
   if stdin_is_terminal(): sys.stderr.write("Enter "+prompt+" (EOF when done)\n")
-  if as_iterable: return sys.stdin.xreadlines()
-  else: return sys.stdin.read()
+  elif as_iterable=='maybe': return [sys.stdin.read()]
+  if as_iterable: return my_xreadlines()
+  else:
+     try: return sys.stdin.read()
+     except KeyboardInterrupt: raise SystemExit
+
+def my_xreadlines():
+   "On some platforms this might be a bit more responsive than sys.stdin.xreadlines"
+   while True:
+      # sys.stderr.write('got here\n')
+      try: yield raw_input()
+      except EOFError: return
+      except KeyboardInterrupt: raise SystemExit
 
 def output_clauses(format,clauses):
    "Writes out clauses and words in format 'format' (clauses is a list of lists of words in the phones of 'format').  By default, calls markup_inline_word and join as appropriate.  If however the format's 'clause_separator' has been set to a special case, calls that."
@@ -2893,6 +2956,7 @@ def catchSignals():
     if not n in [
           signal.SIGCHLD, # sent on subprocess completion
           signal.SIGTSTP,signal.SIGCONT, # Ctrl-Z / fg
+          signal.SIGWINCH, # window-size change
     ] and not signal.getsignal(n)==signal.SIG_IGN:
       try: signal.signal(n,f)
       except: pass
@@ -2947,7 +3011,7 @@ class MacBritish_System_Lexicon(object):
         self.dFile = open(self.filename,'r+')
         assert len(self.allWords()) == len(self.allPh())
         MacBritish_System_Lexicon.instances[voice] = self
-        self.textToAvoid = text ; self.restoreDic = {}
+        self.textToAvoid = text.replace(unichr(160).encode('utf-8'),' ') ; self.restoreDic = {}
         catchSignals()
     def allWords(self):
         "Returns a list of words that are defined in the system lexicon (which won't be changed, but see allPh)"
@@ -2992,21 +3056,23 @@ class MacBritish_System_Lexicon(object):
         "Reads the text given in the constructor after setting up the lexicon with the given (word,phoneme) list"
         # self.check_redef(lex) # uncomment if you want to know about these
         textToPrint = u' '+self.textToAvoid.decode('utf-8')+u' '
-        tta = ' '+self.textToAvoid.replace(u'\u2019'.encode('utf-8'),"'").replace(u'\u2032'.encode('utf-8'),'').replace(u'\u00b7'.encode('utf-8'),'').replace(u'\u2014'.encode('utf-8'),' ')+' ' # (ignore pronunciation marks 2032 and b7 that might be in the text, but still print them in textToPrint; also normalise apostrophes but not in textToPrint, and be careful with dashes as lex'ing the word after a hyphen or em-dash won't work BUT we still want to support hyphenated words IN the lexicon, so em-dashes are replaced here and hyphens are included in nonWordBefore)
+        tta = ' '+self.textToAvoid.replace(u'\u2019'.encode('utf-8'),"'").replace(u'\u2032'.encode('utf-8'),'').replace(u'\u00b4'.encode('utf-8'),'').replace(u'\u02b9'.encode('utf-8'),'').replace(u'\u00b7'.encode('utf-8'),'').replace(u'\u2014'.encode('utf-8'),' ')+' ' # (ignore pronunciation marks 2032 and b7 that might be in the text, but still print them in textToPrint; also normalise apostrophes but not in textToPrint, and be careful with dashes as lex'ing the word after a hyphen or em-dash won't work BUT we still want to support hyphenated words IN the lexicon, so em-dashes are replaced here and hyphens are included in nonWordBefore below)
         words2,phonemes2 = [],[] # keep only the ones actually used in the text (no point setting whole lexicon)
         nonWordBefore=r"(?i)(?<=[^A-Za-z"+chr(0)+"-])" # see below for why chr(0) is included, and see comment above for why hyphen is at the end; (?i) = ignore case
-        nonWordAfter=r"(?=([^A-Za-z'"+unichr(0x2019)+"-]|['"+unichr(0x2019)+r"-][^A-Za-z]))" # followed by non-letter non-apostrophe, or followed by apostrophe non-letter (so not if followed by "'s") (also not if followed by hyphen-letters; hyphen before start is handled above, although TODO preceded by non-letter + hyphen might be OK)
+        nonWordAfter=r"(?=([^A-Za-z'"+unichr(0x2019)+"-]|['"+unichr(0x2019)+r"-][^A-Za-z]))" # followed by non-letter non-apostrophe, or followed by apostrophe non-letter (so not if followed by "'s", because the voice won't use our custom lex entry if "'s" is added to the lex'd word, TODO: automatically add "'s" versions to the lexicon via +s or +iz?) (also not if followed by hyphen-letters; hyphen before start is handled above, although TODO preceded by non-letter + hyphen might be OK)
         ttal = tta.lower()
         for ww,pp in lex:
           if ww.lower() in ttal and re.search(nonWordBefore+re.escape(ww)+nonWordAfter,tta):
             words2.append(ww) ; phonemes2.append(pp)
         for k,v in self.setMultiple(words2,phonemes2).iteritems():
            tta = re.sub(nonWordBefore+re.escape(k)+nonWordAfter,chr(0)+v,tta)
-           textToPrint = re.sub(nonWordBefore+'('+u'[\u2032\u00b7]*'.join(re.escape(c) for c in k)+')'+nonWordAfter,chr(0)+r'\1'+chr(1),textToPrint)
+           textToPrint = re.sub(nonWordBefore+'('+u'[\u2032\u00b4\u02b9\u00b7]*'.join(re.escape(c) for c in k)+')'+nonWordAfter,chr(0)+r'\1'+chr(1),textToPrint)
         tta = tta.replace(chr(0),'')
         term = os.environ.get("TERM","")
         if ("xterm" in term or term=="screen") and sys.stdout.isatty(): # we can probably underline words (inverse is more widely supported than underline, e.g. should work even on an old Linux console in case someone's using that to control an OS X server, but there might be a *lot* of words, which wouldn't be very good in inverse if user needs dark background and inverse is bright.  Unlike Annogen, we're dealing primarily with Latin letters.)
-           print textToPrint.encode('utf-8').replace(chr(0),"\x1b[4m").replace(chr(1),"\x1b[0m").strip()
+           import textwrap
+           textwrap.len = lambda x: len(x.replace(chr(0),"").replace(chr(1),"")) # a 'hack' to make (at least the 2.x implementations of) textwrap ignore our chr(0) and chr(1) markers in their calculations.  Relies on textwrap calling len().
+           print textwrap.fill(textToPrint,stdout_width_unix(),break_on_hyphens=False).encode('utf-8').replace(chr(0),"\x1b[4m").replace(chr(1),"\x1b[0m").strip() # break_on_hyphens=False because we don't really want hyphenated NAMES to be split across lines, and anyway textwrap in (at least) Python 2.7 has a bug that sometimes causes a line breaks to be inserted before a syllable marker symbol like 'prime'
         # else don't print anything (saves confusion)
         os.popen(macSayCommand()+" -v \""+self.voice+"\"",'w').write(tta)
     def setMultiple(self,words,phonemes):
@@ -3057,7 +3123,10 @@ class MacBritish_System_Lexicon(object):
         del MacBritish_System_Lexicon.instances[self.voice]
         assert not os.system("rm -f /tmp/"+self.voice+".PCMWave.lock")
         self.voice=None
-
+def stdout_width_unix(): # assumes isatty
+   import struct,fcntl,termios
+   return struct.unpack('hh', fcntl.ioctl(1,termios.TIOCGWINSZ,'1234'))[1]
+        
 lexFormats = LexFormats() # at end, in case it refers to anything that was defined later
 
 if __name__ == "__main__": sys.exit(main())
