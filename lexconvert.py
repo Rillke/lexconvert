@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
-"""lexconvert v0.24 - convert phonemes between different speech synthesizers etc
-(c) 2007-16 Silas S. Brown.  License: GPL"""
+"""lexconvert v0.261 - convert phonemes between different speech synthesizers etc
+(c) 2007-17 Silas S. Brown.  License: GPL"""
 
 # Run without arguments for usage information
 
@@ -643,7 +643,7 @@ def LexFormats():
   ),
 
   "x-sampa" : makeDic(
-    "General X-SAMPA notation (contributed by Jan Weiss)",
+    "General X-SAMPA notation, contributed by Jan Weiss",
     ('.',syllable_separator),
     ('"',primary_stress),
     ('%',secondary_stress),
@@ -726,6 +726,48 @@ def LexFormats():
     # TODO: inline_format ?
     word_separator=" ",phoneme_separator="",
     safe_to_drop_characters=True, # TODO: really?
+  ),
+  "vocaloid" : makeVariantDic(
+     "X-SAMPA phonemes for Yamaha's Vocaloid singing synthesizer.  Contributed by Lorenzo Gatti, who tested in Vocaloid 4 using two American English voices.",
+     ('-',syllable_separator),
+     (primary_stress,'',False), # not used by Vocaloid
+     (secondary_stress,'',False),
+     ('Q',a_as_in_ah),
+     (var3_a_as_in_ah,'Q',False),
+     (var4_a_as_in_ah,'Q',False),
+     (var5_a_as_in_ah,'Q',False),
+     ('O@',o_as_in_orange),
+     (var1_o_as_in_orange,'O@',False),
+     (var2_o_as_in_orange, 'O@',False),
+     ('@U',o_as_in_now),
+     ('@r',e_as_in_herd),
+     (var1_eye, 'aI',False),
+     ('e',e_as_in_them),
+     ('I@',ar_as_in_year),
+     ('e@',a_as_in_air),
+     (var1_a_as_in_air, 'e@',False),
+     (var2_a_as_in_air, 'e@',False),
+     (var3_a_as_in_air, 'e@',False),
+     (var4_a_as_in_air, 'e@',False),
+     (var1_a_as_in_ate, 'eI', False),
+     (var1_i_as_in_it, 'I',False),
+     (var1_ear, 'I@',False),
+     ('i:',e_as_in_eat),
+     (var1_e_as_in_eat, 'i:',False),
+     (var2_o_as_in_go, '@U', False),
+     ('V', var1_u_as_in_but),
+     (var1_oy_as_in_toy, 'OI',False),
+     ('r',r),
+     ('th',t),
+     (var1_oor_as_in_poor, '@U',False),
+     ('u:',oo_as_in_food),
+     (var1_oo_as_in_food, 'u:',False),
+     (var1_close_to_or,'O:',False),
+     (var2_close_to_or,'O:',False),
+     (var1_w, 'w', False),
+     lex_filename="vocaloid.txt",
+     phoneme_separator=" ",
+     noInherit=True
   ),
   "android-pico" : makeVariantDic(
     'X-SAMPA phonemes for the default \"Pico\" voice in Android (1.6+, American), wrapped in Java code', # you could put en-GB instead of en-US, but it must be installed on the phone
@@ -819,7 +861,7 @@ def LexFormats():
   ),
 
   "cmu" : makeDic(
-    'format of the US-English Carnegie Mellon University Pronouncing Dictionary (contributed by Jan Weiss)', # http://www.speech.cs.cmu.edu/cgi-bin/cmudict
+    'format of the US-English Carnegie Mellon University Pronouncing Dictionary, contributed by Jan Weiss', # http://www.speech.cs.cmu.edu/cgi-bin/cmudict
     ('0',syllable_separator),
     ('1',primary_stress),
     ('2',secondary_stress),
@@ -833,41 +875,41 @@ def LexFormats():
     (a_as_in_ago,'AH',False),
     ('ER',e_as_in_herd), # TODO: check this one
     ('AY',eye),
-    ('B ',b),
+    ('B',b),
     ('CH',ch),
-    ('D ',d),
+    ('D',d),
     ('DH',th_as_in_them),
     ('EH',e_as_in_them),
     (ar_as_in_year,'ER',False),
     (a_as_in_air,'ER',False),
     ('EY',a_as_in_ate),
-    ('F ',f),
-    ('G ',g),
+    ('F',f),
+    ('G',g),
     ('HH',h),
     ('IH',i_as_in_it),
     ('EY AH',ear),
     ('IY',e_as_in_eat),
     ('JH',j_as_in_jump),
-    ('K ',k),
-    ('L ',l),
-    ('M ',m),
-    ('N ',n),
+    ('K',k),
+    ('L',l),
+    ('M',m),
+    ('N',n),
     ('NG',ng),
     ('OW',o_as_in_go),
     ('OY',oy_as_in_toy),
-    ('P ',p),
-    ('R ',r),
-    ('S ',s),
+    ('P',p),
+    ('R',r),
+    ('S',s),
     ('SH',sh),
-    ('T ',t),
+    ('T',t),
     ('TH',th_as_in_think),
     ('UH',oor_as_in_poor),
     ('UW',oo_as_in_food),
     ('AO',close_to_or),
-    ('V ',v),
-    ('W ',w),
-    ('Y ',y),
-    ('Z ',z),
+    ('V',v),
+    ('W',w),
+    ('Y',y),
+    ('Z',z),
     ('ZH',ge_of_blige_etc),
     # lex_filename not set (does CMU have a lex file?)
     safe_to_drop_characters=True, # TODO: really?
@@ -2119,7 +2161,7 @@ Attempt to break 'words' into syllables for music lyrics (uses espeak to determi
    # Normally, espeak -x output can't be relied on to always put a space between every input word.  So we put a newline after every input word instead.  This might affect eSpeak's output (not recommended for mainopt_phones, hence no 'interleave words and phonemes' option), but it should be OK for just counting the syllables.  (Also, the assumption that the input words have been taken from song lyrics usefully rules out certain awkward punctuation cases.)
    for txt in getInputText(i+1,"word(s)",'maybe'):
       words=txt.split()
-      response = pipeThroughEspeak('\n'.join(words).replace("!","").replace(":",""))
+      response = pipeThroughEspeak('\n'.join(words).replace("!","").replace(":","").replace(".",""))
       if not '\n' in response.rstrip() and 'command' in response: return response.strip() # 'bad cmd' / 'cmd not found'
       rrr = response.split("\n")
       print " ".join([hyphenate(word,sylcount(convert(line,"espeak","example"))) for word,line in zip(words,filter(lambda x:x,rrr))])
@@ -3011,7 +3053,7 @@ class MacBritish_System_Lexicon(object):
         self.dFile = open(self.filename,'r+')
         assert len(self.allWords()) == len(self.allPh())
         MacBritish_System_Lexicon.instances[voice] = self
-        self.textToAvoid = text.replace(unichr(160).encode('utf-8'),' ') ; self.restoreDic = {}
+        self.textToAvoid = text.decode('utf-8').replace(unichr(160),' ') ; self.restoreDic = {}
         catchSignals()
     def allWords(self):
         "Returns a list of words that are defined in the system lexicon (which won't be changed, but see allPh)"
@@ -3055,13 +3097,14 @@ class MacBritish_System_Lexicon(object):
     def readWithLex(self,lex):
         "Reads the text given in the constructor after setting up the lexicon with the given (word,phoneme) list"
         # self.check_redef(lex) # uncomment if you want to know about these
-        textToPrint = u' '+self.textToAvoid.decode('utf-8')+u' '
-        tta = ' '+self.textToAvoid.replace(u'\u2019'.encode('utf-8'),"'").replace(u'\u2032'.encode('utf-8'),'').replace(u'\u00b4'.encode('utf-8'),'').replace(u'\u02b9'.encode('utf-8'),'').replace(u'\u00b7'.encode('utf-8'),'').replace(u'\u2014'.encode('utf-8'),' ')+' ' # (ignore pronunciation marks 2032 and b7 that might be in the text, but still print them in textToPrint; also normalise apostrophes but not in textToPrint, and be careful with dashes as lex'ing the word after a hyphen or em-dash won't work BUT we still want to support hyphenated words IN the lexicon, so em-dashes are replaced here and hyphens are included in nonWordBefore below)
+        textToPrint = u' '+self.textToAvoid+u' '
+        tta = ' '+self.textToAvoid.replace(u'\u2019',"'").replace(u'\u2032','').replace(u'\u00b4','').replace(u'\u02b9','').replace(u'\u00b7','').replace(u'\u2014',' ')+' ' # (ignore pronunciation marks 2032 and b7 that might be in the text, but still print them in textToPrint; also normalise apostrophes but not in textToPrint, and be careful with dashes as lex'ing the word after a hyphen or em-dash won't work BUT we still want to support hyphenated words IN the lexicon, so em-dashes are replaced here and hyphens are included in nonWordBefore below)
         words2,phonemes2 = [],[] # keep only the ones actually used in the text (no point setting whole lexicon)
         nonWordBefore=r"(?i)(?<=[^A-Za-z"+chr(0)+"-])" # see below for why chr(0) is included, and see comment above for why hyphen is at the end; (?i) = ignore case
         nonWordAfter=r"(?=([^A-Za-z'"+unichr(0x2019)+"-]|['"+unichr(0x2019)+r"-][^A-Za-z]))" # followed by non-letter non-apostrophe, or followed by apostrophe non-letter (so not if followed by "'s", because the voice won't use our custom lex entry if "'s" is added to the lex'd word, TODO: automatically add "'s" versions to the lexicon via +s or +iz?) (also not if followed by hyphen-letters; hyphen before start is handled above, although TODO preceded by non-letter + hyphen might be OK)
         ttal = tta.lower()
         for ww,pp in lex:
+          ww = ww.decode('utf-8') # so you can add words with accents etc (in utf-8) to the lexicon
           if ww.lower() in ttal and re.search(nonWordBefore+re.escape(ww)+nonWordAfter,tta):
             words2.append(ww) ; phonemes2.append(pp)
         for k,v in self.setMultiple(words2,phonemes2).iteritems():
@@ -3074,7 +3117,7 @@ class MacBritish_System_Lexicon(object):
            textwrap.len = lambda x: len(x.replace(chr(0),"").replace(chr(1),"")) # a 'hack' to make (at least the 2.x implementations of) textwrap ignore our chr(0) and chr(1) markers in their calculations.  Relies on textwrap calling len().
            print textwrap.fill(textToPrint,stdout_width_unix(),break_on_hyphens=False).encode('utf-8').replace(chr(0),"\x1b[4m").replace(chr(1),"\x1b[0m").strip() # break_on_hyphens=False because we don't really want hyphenated NAMES to be split across lines, and anyway textwrap in (at least) Python 2.7 has a bug that sometimes causes a line breaks to be inserted before a syllable marker symbol like 'prime'
         # else don't print anything (saves confusion)
-        os.popen(macSayCommand()+" -v \""+self.voice+"\"",'w').write(tta)
+        os.popen(macSayCommand()+" -v \""+self.voice+"\"",'w').write(tta.encode('utf-8'))
     def setMultiple(self,words,phonemes):
         "Sets phonemes for words, returning dict of word to substitute word.  Flushes file buffer before return."
         avail = [] ; needed = []
