@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-"""lexconvert v0.261 - convert phonemes between different speech synthesizers etc
+"""lexconvert v0.264 - convert phonemes between different speech synthesizers etc
 (c) 2007-17 Silas S. Brown.  License: GPL"""
 
 # Run without arguments for usage information
@@ -405,6 +405,7 @@ def LexFormats():
       # (r"([^iU]@)l",r"\1L") # only in older versions of espeak (not valid in more recent versions)
       ("rr$","r"),
       ("3:r$","3:"),
+      ("%%+","%"),("^%",""),("%$",""),
       # TODO: 'declared' & 'declare' the 'r' after the 'E' sounds a bit 'regional' (but pretty).  but sounds incomplete w/out 'r', and there doesn't seem to be an E2 or E@
       # TODO: consider adding 'g' to words ending in 'N' (if want the 'g' pronounced in '-ng' words) (however, careful of words like 'yankee' where the 'g' would be followed by a 'k'; this may also be a problem going into the next word)
     ],
@@ -1422,7 +1423,7 @@ def LexFormats():
     (u'\u02d0',ipa_colon),
     (u'\u0251\u02d0',var3_a_as_in_ah),
     (u'\u0251\u0279',var4_a_as_in_ah),
-    ('a\u02d0',var5_a_as_in_ah),
+    (u'a\u02d0',var5_a_as_in_ah),
     (u'\xe6',a_as_in_apple),
     ('a',a_as_in_apple,False),
     (u'\u028c',u_as_in_but),
@@ -1518,7 +1519,7 @@ def LexFormats():
     lex_type = "Python script",
     lex_header = '#!/usr/bin/env python\n# -*- coding: utf-8 -*-\nimport sys; d={',
     lex_entry_format='"%s":u"%s",\n',
-    lex_footer = "}\nfor k in d.keys(): d[k.lower()]=d[k]\nnextIsHead=False\nfor l in sys.stdin:\n sys.stdout.write(l)\n if nextIsHead and l.strip():\n  w=l.split()\n  if w[0]=='ehw': l=' '.join(w[1:])\n  if l.strip().lower() in d: sys.stdout.write('ipa '+d[l.strip().lower()].encode('utf-8')+'\\n')\n if l.startswith('*** '): nextIsHead=True\n",
+    lex_footer = "}\nimport re\nfor k in d.keys(): d[k.lower()]=d[k]\nnextIsHead=False\nfor l in sys.stdin:\n sys.stdout.write(l)\n if nextIsHead and l.strip():\n  w=l.split()\n  if w[0]=='ehw': l=' '.join(w[1:])\n  k = re.sub(r'\\([^)]*\\)$','',l.strip()).strip().lower()\n  if k in d: sys.stdout.write('ipa '+d[k].encode('utf-8')+'\\n')\n if l.startswith('*** '): nextIsHead=True\n", # (allow parenthesised explanation after headword when matching)
     noInherit=True
   ),
 
@@ -1994,8 +1995,7 @@ Use eSpeak to convert text to phonemes, and then convert the phonemes to format 
 E.g.: python lexconvert.py --phones unicode-ipa This is a test sentence.
 Set environment variable PHONES_PIPE_COMMAND to an additional command to which to write the phones as well as standard output.  (If standard input is a terminal then this will be done separately after each line.)
 (Some commercial speech synthesizers do not work well when driven entirely from phonemes, because their internal format is different and is optimised for normal text.)
-Set format to 'all' if you want to see the phonemes in ALL supported formats.
-"""
+Set format to 'all' if you want to see the phonemes in ALL supported formats."""
    format = sys.argv[i+1]
    if format=="example": return "The 'example' format cannot be used with --phones; try --convert, or did you mean --phones festival" # could allow example anyway as it's basically Festival, but save confusion as eSpeak might not generate the same phonemes if our example words haven't been installed in the system's eSpeak.  (Still allow it to be used in --try etc though.)
    if not format in lexFormats and not format=="all": return "No such format "+repr(format)+" (use --formats to see a list of formats)"
@@ -2020,6 +2020,116 @@ Set format to 'all' if you want to see the phonemes in ALL supported formats.
           out()
           sys.stdout = o
 
+def mainopt_ruby(i):
+   """*<format> [<words>]
+Like --phones but outputs the result as HTML RUBY markup, with each word's pronunciation symbols placed above the corresponding English word.
+E.g.: python lexconvert.py --ruby unicode-ipa This is a test sentence.
+This option is made more complicated by the fact that different versions of eSpeak may space the phoneme output differently, for example when handling numbers; if your eSpeak version is not recognised then all numbers are unannotated. Anyway you are advised not to rely on this option working with the new development NG versions of eSpeak. If the version you have behaves unexpectedly, words and phonemes output might lose synchronisation. However this option is believed to be stable when used with simple text and the original eSpeak.
+You can optionally set the RUBY_GRADINT_CGI environment variable to the URL of an instance of Gradint Web Edition to generate audio links for each word.  If doing this in a Web Adjuster filter, see comments in the lexconvert source for setup details."""
+   # htmlFilter with --htmlText of course.  Set separator to two newlines and copy the generated 'h5a' function (from a manual run or the lexconvert source) into Adjuster's headAppend option (but don't expect HTML5 audio to work from Adjuster's submitBookmarklet option; pronunciation links will take you off the page if it doesn't).
+   # Use double newlines as single newlines are used in the h5a script; adding that script via bookmarklet doesn't always run it
+   format = sys.argv[i+1]
+   if format=="example": return "The 'example' format cannot be used with --ruby; did you mean festival?" # as above
+   elif format=="all": return "The --phones all option cannot be used with --ruby" # (well you could implement it if you want but the resulting ruby would be quite unwieldy)
+   if not format in lexFormats: return "No such format "+repr(format)+" (use --formats to see a list of formats)"
+   text = getInputText(i+2,"text").replace(u'\u2019'.encode('utf-8'),"'").replace(u'\u2032'.encode('utf-8'),"'").replace(u'\u00b4'.encode('utf-8'),"'").replace(u'\u02b9'.encode('utf-8'),"'").replace(u'\u00b7'.encode('utf-8'),'').replace(u'\u00a0'.encode('utf-8'),' ')
+   # eSpeak's basic idea of an alphabetical word (most versions?) -
+   wordRegexps = [r"(?:[A-Z]+['?-])*(?:(?:(?<![A-z.])(?:[A-z]\.)+[A-z](?![A-z.]))|[A-Z]+[a-z](?![A-z])|[A-Z][A-Z]+(?![a-z][A-z])|[A-Z]?(?:[a-z]['?-]?)+|[A-Z])"]
+   # A dot, when not part of an elipses, followed by a letter is pronounced "dot", and two of them are pronounced "dot dot":
+   wordRegexps.append(r"(?<!\.\.)\.(?=[A-z])|(?<!\.)\.(?=\.[A-z])")
+   # ! followed by a letter is pronounced "exclamation", and .! is "dotexclamation"; @ symbols similarly; copyright
+   atEtc = u"(?:[@!:]|\u00a9)*".encode('utf-8')
+   wordRegexps.append(r"\.?[!@]+(?=[A-z])|(?<![A-z])@"+atEtc+"(?![A-z])|"+unichr(0xa9).encode('utf-8')+atEtc)
+   # : between numbers if NOT followed by 2 digits:
+   wordRegexps.append(r"(?<![A-z]):(?![A-z]|[0-9][0-9])")
+   # - between numbers
+   wordRegexps.append(r"(?<=[0-9])-(?=[0-9])")
+   # TODO: if you paste in (e.g.) CJK characters, eSpeak will say "symbol-symbol-symbol" etc, but this is not accounted for by the above regexp so it'll go onto following words.
+   vLine = espeak_version_line()
+   if "1.45." in vLine:
+      # This seems to work in eSpeak 1.45:
+      # (TODO: test leading 0s & leading decimal)
+      # a number of 4 digits or less (with any number of digits after the decimal point) is grouped as 1 word:
+      wordRegexps.append(r"(?<![0-9])[0-9]{1,4}(?:\.[0-9]+)?(?!,?[0-9])")
+      # and a number of 1 to 3 digits with any number of 000 or ,000 groups, with optional decimal point followed by any number of digits, OR when placed before an integer number of 3-digit groups, is grouped as 1 word:
+      wordRegexps.append(r"[0-9]{1,3}(?:,?000)*(?:\.[0-9]+)?,?(?=(?:,?[0-9]{3,3})*,?(?:[^0-9]|$))")
+      text2 = text
+   elif "1.48." in vLine:
+      # In eSpeak 1.48 the groups are smaller.
+      # Decimal point and everything after it = individual
+      wordRegexps.append(r"(?<=[0-9])\.(?=[0-9])")
+      for places in range(25): # TODO: really want unbounded, but (?<=...) is fixed-length
+         wordRegexps.append(r"(?<=[0-9]\."+"[0-9]"*places+r")[0-9]")
+      # Number with a leading dot grouped as 1 word:
+      wordRegexps.append(r"(?<![0-9])\.[0-9]+")
+      # TODO: leading 0s (0000048 goes to 0 000 048)
+      # For normal numbers:
+      # A null string w. 3 or 6 digits to go and digits b4 shld match for 'thousand', 'million' (unless 3+ digits are leading 0s, or fewer than 3 leading 0s and whole thing begins with a 0, or it's part of a decimal expansion, in which case different rules apply, but (?<=...) must be fixed-length, so we need another one of these awful loops) :
+      for prevDigits in range(10):
+         for beforeThat in ["^",r"[^.0-9,]"]: # beginning of string, or something OTHER than a decimal point / num
+            wordRegexps.append(r"(?<="+beforeThat+"[1-9]"+"[0-9,]"*prevDigits+r")(?<!,)(?<!000)(?# empty string )(?=(?:,?(?:[0-9]{3,3}))+(?:[^0-9]|$))")
+      # 1-9 (not 0) with 2, 5 or 8 etc digits to go = "N-hundred-and" :
+      wordRegexps.append(r"[1-9](?=[0-9][0-9](?:,?(?:[0-9]{3,3}))*(?:[^0-9]|$))")
+      # + 0 with 2 digits to go when preceded by digits = "and", as long as followed by at least one non-0:
+      wordRegexps.append(r"(?<=[0-9,])0(?=(?:[0-9][1-9]|[1-9][0-9])(?:[^0-9,]|$))")
+      # 1 or 2 digits with 0,3,6.. to go = "seventy-six" or whatever, as long as they're not both 0 :
+      wordRegexps.append(r"(?:0[1-9]|[1-9][0-9]?)(?=(?:,?(?:[0-9]{3,3}))*(?:[^0-9]|$))")
+      # 0 by itself (not preceded by digits) = "nought" :
+      wordRegexps.append(r"(?<![0-9])0(?=[^0-9]|$)")
+      text2 = text
+   else: text2 = re.sub(r"\.?[0-9]+","",text) # unknown eSpeak version: don't annotate the numbers
+   response = pipeThroughEspeak(text2)
+   if not '\n' in response.rstrip() and 'command' in response: return response.strip() # 'bad cmd' / 'cmd not found'
+   gradint_cgi = os.environ.get("RUBY_GRADINT_CGI","")
+   if gradint_cgi:
+      linkStart,linkEnd = lambda w:'<a href="'+gradint_cgi+'?js=[['+w.replace('%','%25').replace('&','%26')+']]&jsl=en" onclick="return h5a(this);">', '</a>'
+      print r"""<script><!-- // HTML5-audio function
+function h5a(link) {
+ if (document.createElement) {
+   var ae = document.createElement('audio');
+   if (ae.canPlayType && function(s){return s!="" && s!="no"}(ae.canPlayType('audio/mpeg'))) {
+     ae.setAttribute('src', link.href);
+     ae.play(); return false;
+   } else if (ae.canPlayType && function(s){return s!="" && s!="no"}(ae.canPlayType('audio/ogg'))) {
+     ae.setAttribute('src', link.href+"&filetype=ogg");
+     ae.play(); return false; }
+ } return true; }
+//--></script>"""
+   else: linkStart,linkEnd = lambda w:"", ""
+   rubyList = []
+   for clause in parseIntoWordsAndClauses("espeak",response):
+      for w in clause:
+         converted = convert(w,"espeak",format)
+         if not converted: continue # e.g. a lone _:_:
+         rubyList.append(linkStart(w)+markup_inline_word(format,converted).replace("&","&amp;").replace("<","&lt;")+linkEnd)
+   rubyList.reverse() # so can pop() left-to-right order
+   # Write out re.sub ourselves, because (1) some versions of the library (e.g. on 2.7.12) try to do some things in-place, and we're using previous-context regexps that aren't compatible with previous things having been already <ruby>'ified, and (2) if we match a 0-length string, re.finditer won't ALSO return a non-0 length match starting in the same place, and we want both (so we're using wordRegexps as a list rather than an | expression)
+   matches = {}
+   debug = False # if True, will add ruby title=(index of the regexp that matched)
+   debugCount = 0
+   for r in wordRegexps:
+      for match in re.finditer(r,text):
+         matches[(match.start(),match.end())] = debugCount
+      debugCount += 1
+   i = 0 ; r = []
+   for start,end in sorted(matches.keys()):
+      if start<i: continue # overlap??
+      r.append(text[i:start])
+      if start==end: m = "&nbsp;"
+      else: m = text[start:end].replace("&","&amp;").replace("<","&lt;")
+      try: rt = rubyList.pop()
+      except: rt = "ERROR" # we've lost synchronisation
+      if debug: title = " title="+str(matches[(start,end)])
+      else: title = ""
+      r.append("<ruby"+title+"><rb>"+m+"</rb><rt>"+rt+"</rt></ruby>")
+      i = end
+   r.append(text[i:])
+   while rubyList: # oops, lost synchronisation the other way (TODO: show this per-paragraph? but don't call eSpeak too many times if processing many short paragraphs)
+      r.append("<ruby><rb>ERROR</rb><rt>"+rubyList.pop()+"</rt></ruby>")
+   out = "".join(r)
+   if out.endswith("\n"): sys.stdout.write(out)
+   else: print out
+
 def pipeThroughEspeak(inpt):
    "Writes inpt to espeak -q -x (in chunks if necessary) and returns the result"
    bufsize = 8192 # careful not to set this too big, as the OS might limit it (TODO can we check?)
@@ -2037,6 +2147,8 @@ def pipeThroughEspeak(inpt):
    w,r=os.popen4("espeak -q -x",bufsize=bufsize)
    w.write(inpt) ; w.close()
    return "\n".join(ret) + r.read()
+
+def espeak_version_line(): return os.popen("espeak -h 2>&1").read().strip().split("\n")[0]
 
 def writeFormatHeader(format):
    "Writes a header for 'format' when outputting in all formats.  Assumes the output MIGHT end up being more than one line."
@@ -2158,7 +2270,7 @@ In all cases you need to cd to the eSpeak source directory before running this. 
 def mainopt_syllables(i):
    """[<words>]
 Attempt to break 'words' into syllables for music lyrics (uses espeak to determine how many syllables are needed)"""
-   # Normally, espeak -x output can't be relied on to always put a space between every input word.  So we put a newline after every input word instead.  This might affect eSpeak's output (not recommended for mainopt_phones, hence no 'interleave words and phonemes' option), but it should be OK for just counting the syllables.  (Also, the assumption that the input words have been taken from song lyrics usefully rules out certain awkward punctuation cases.)
+   # As explained on mainopt_ruby's help text, espeak -x output can't be relied on to always put a space between every input word.  Rather than try to guess what espeak is going to do, here we simply put a newline after every input word instead.  This might affect eSpeak's output (so not recommended for mainopt_ruby), but it should be OK for just counting the syllables.  (Also, the assumption that the input words have been taken from song lyrics usefully rules out certain awkward punctuation cases.)
    for txt in getInputText(i+1,"word(s)",'maybe'):
       words=txt.split()
       response = pipeThroughEspeak('\n'.join(words).replace("!","").replace(":","").replace(".",""))
@@ -2597,6 +2709,10 @@ def get_macuk_lexicon(fromFormat):
     "Converts lexicon from fromFormat and returns a list suitable for MacBritish_System_Lexicon's readWithLex"
     return [(word,convert(pronunc,fromFormat,"mac-uk")) for word, pronunc in read_user_lexicon(fromFormat)]
 
+def as_utf8(s):
+   if type(s)==unicode: return s.encode('utf-8')
+   else: return s
+
 def convert_user_lexicon(fromFormat,toFormat,outFile):
     "See mainopt_convert"
     lex = read_user_lexicon(fromFormat)
@@ -2606,8 +2722,7 @@ def convert_user_lexicon(fromFormat,toFormat,outFile):
     entryFormat=getSetting(toFormat,"lex_entry_format")
     wordCase=checkSetting(toFormat,"lex_word_case")
     for word, pronunc in lex:
-        pronunc = convert(pronunc,fromFormat,toFormat)
-        if type(pronunc)==unicode: pronunc=pronunc.encode('utf-8')
+        pronunc = as_utf8(convert(pronunc,fromFormat,toFormat))
         if wordCase=="upper": word=word.upper()
         elif wordCase=="lower": word=word.lower()
         outFile.write(entryFormat % (word,pronunc))
@@ -2636,7 +2751,7 @@ def bbcMicro_partPhonemeCount(pronunc):
 
 def markup_inline_word(format,pronunc):
     "Returns pronunc with any necessary markup for putting it in a text (using the inline_format setting)"
-    if type(pronunc)==unicode: pronunc=pronunc.encode('utf-8') # UTF-8 output - ok for pasting into Firefox etc *IF* the terminal/X11 understands utf-8 (otherwise redirect to a file, point the browser at it, and set encoding to utf-8, or try --convert'ing which will o/p HTML)
+    pronunc = as_utf8(pronunc) # UTF-8 output - ok for pasting into Firefox etc *IF* the terminal/X11 understands utf-8 (otherwise redirect to a file, point the browser at it, and set encoding to utf-8, or try --convert'ing which will o/p HTML)
     format = checkSetting(format,"inline_format","%s")
     if type(format) in [str,unicode]:
        if type(format)==unicode: format=format.encode('utf-8') # see above
